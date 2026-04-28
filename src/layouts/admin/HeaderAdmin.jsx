@@ -1,60 +1,40 @@
 import React from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { NavLink } from 'react-router-dom';
 
-const AdminHeader = () => {
-  const location = useLocation();
-
-  // Fungsi kecil untuk menentukan class berdasarkan status active/hover
-  const getLinkClass = (path) => {
-    const baseClass = "text-[0.8rem] transition-colors duration-300 cursor-pointer ";
-    return location.pathname === path 
-      ? baseClass + "text-[#FF8C00]" // Class saat active (Orange)
-      : baseClass + "text-white hover:text-[#FF8C00]"; // Class default & hover
-  };
+const HeaderAdmin = () => {
+  // Daftar menu navigasi
+  const menuItems = [
+    { name: 'Beranda', path: '/' },
+    { name: 'Buat Pesanan', path: '/buat-pesanan' },
+    { name: 'Pesanan', path: '/pesanan' },
+    { name: 'Proses Pesanan', path: '/adminProses-pesanan' },
+    { name: 'Riwayat Pesanan', path: '/riwayat-pesanan' },
+    { name: 'Kelola Menu', path: '/kelola-menu' },
+  ];
 
   return (
-    <nav className="flex justify-between items-center py-[15px] px-[5%] bg-[#002366] text-white sticky top-0 z-[1000] shadow-[0_4px_10px_rgba(0,0,0,0.2)]">
-      
-      {/* Logo Kios Mom's */}
-      <div className="text-xl font-bold tracking-wide">
-        Kios <span className="text-[#FF8C00]">Mom's</span>
+    <header className="bg-[#002366] text-white py-6 px-4 shadow-md sticky top-0 z-[100]">
+      <div className="max-w-7xl mx-auto flex justify-center items-center">
+        <ul className="flex flex-wrap justify-center gap-x-8 gap-y-2 items-center">
+          {menuItems.map((item) => (
+            <li key={item.path}>
+              <NavLink
+                to={item.path}
+                // LOGIKA: Jika path aktif (sedang dibuka), teks otomatis jadi Orange [#FF8C00]
+                className={({ isActive }) =>
+                  `text-[15px] font-medium transition-all duration-300 hover:text-[#FF8C00] ${
+                    isActive ? 'text-[#FF8C00] font-bold' : 'text-white'
+                  }`
+                }
+              >
+                {item.name}
+              </NavLink>
+            </li>
+          ))}
+        </ul>
       </div>
-
-      {/* Menu Navigasi */}
-      <ul className="flex list-none m-0 p-0 items-center">
-        <li className="mx-[10px]">
-          <Link to="/" className={getLinkClass('/')}>
-            Beranda
-          </Link>
-        </li>
-        <li className="mx-[10px]">
-          <Link to="/buat-pesanan" className={getLinkClass('/buat-pesanan')}>
-            Buat Pesanan
-          </Link>
-        </li>
-        <li className="mx-[10px]">
-          <Link to="/Pesanan" className={getLinkClass('/Pesanan')}>
-            Pesanan
-          </Link>
-        </li>
-        <li className="mx-[10px]">
-          <Link to="/adminProses-pesanan" className={getLinkClass('/adminProses-Pesanan')}>
-            Proses Pesanan
-          </Link>
-        </li>
-        <li className="mx-[10px]">
-          <Link to="/riwayat-pesanan" className={getLinkClass('/riwayat-pesanan')}>
-            Riwayat Pesanan
-          </Link>
-        </li>
-        <li className="mx-[10px]">
-          <Link to="/kelola-menu" className={getLinkClass('/kelola-menu')}>
-            Kelola Menu
-          </Link>
-        </li>
-      </ul>
-    </nav>
+    </header>
   );
 };
 
-export default AdminHeader;
+export default HeaderAdmin;
