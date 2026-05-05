@@ -1,34 +1,76 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { supabase } from "../../lib/supabaseClient";
 
-const PesananAdmin = ({ cart = {}, menus = [], updateQty, pindahkanKeProses }) => {
+// Tambahkan props 'pindahkanKeProses' agar bisa dipanggil di sini
+const PesananAdmin = ({ cart = {}, menu = [], updateQty, clearCart, pindahkanKeProses }) => {
   const navigate = useNavigate();
   const [meja, setMeja] = useState('');
   const [payMethod, setPayMethod] = useState('Tunai');
+  const [loading, setLoading] = useState(false);
 
-  // Mengambil item yang ada di keranjang
   const cartItems = Object.keys(cart).filter(id => cart[id] > 0);
+  
   let totalHarga = 0;
-  let totalPcs = 0;
+  cartItems.forEach(id => {
+    // Gunakan String(id) untuk memastikan kecocokan ID dari database
+    const m = menu.find(item => String(item.id) === String(id));
+    if (m) totalHarga += m.harga * cart[id];
+  });
 
-  // PERBAIKAN: Fungsi validasi input meja (1-100)
   const handleMejaChange = (e) => {
     const value = e.target.value;
-    
-    // Jika input kosong, perbolehkan (agar admin bisa menghapus angka untuk mengetik ulang)
-    if (value === "") {
-      setMeja("");
-      return;
-    }
-
+    if (value === "") { setMeja(""); return; }
     const num = parseInt(value);
-    // Hanya set state jika angka berada di range 1 - 100
-    if (num >= 1 && num <= 100) {
-      setMeja(num);
-    } else if (num > 100) {
-      setMeja(100); // Jika input lebih dari 100, otomatis set ke 100
+    if (num >= 1 && num <= 100) { setMeja(num); } 
+    else if (num > 100) { setMeja(100); }
+  };
+
+  const handleProsesPesanan = async () => {
+    if (!meja || cartItems.length === 0) return;
+
+    setLoading(true);
+    try {
+      // 1. Simpan ke Database Supabase (History)
+      const { error } = await supabase
+        .from('history_pesanan')
+        .insert([
+          { 
+            nomor_meja: parseInt(meja), 
+            total_harga: totalHarga, 
+            metode_pembayaran: payMethod, 
+            status: 'Diproses' 
+          }
+        ]);
+
+      if (error) throw error;
+
+      // 2. PANGGIL FUNGSI INI (PENTING!)
+      // Ini agar pesanan muncul di halaman "Admin Proses Pesanan"
+      if (pindahkanKeProses) {
+        pindahkanKeProses(
+          meja, 
+          "", // Email (kosongkan saja)
+          payMethod, 
+          totalHarga, 
+          cartItems, 
+          menu
+        );
+      }
+
+      alert("Pesanan meja " + meja + " berhasil diproses!");
+      
+      // 3. Bersihkan keranjang
+      if (clearCart) clearCart(); 
+      
+      // Navigasi sudah ditangani di dalam fungsi 'pindahkanKeProses' di App.jsx
+      
+    } catch (error) {
+      console.error("Gagal menyimpan pesanan:", error.message);
+      alert("Terjadi kesalahan: " + error.message);
+    } finally {
+      setLoading(false);
     }
-    // Jika negatif atau 0, abaikan (tidak merubah state)
   };
 
   return (
@@ -45,7 +87,6 @@ const PesananAdmin = ({ cart = {}, menus = [], updateQty, pindahkanKeProses }) =
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
           
-          {/* DAFTAR BELANJA */}
           <div className="lg:col-span-8 space-y-4">
             <h3 className="font-black text-2xl text-gray-800 mb-2">Ringkasan <span className="text-[#FF8C00]">Menu</span></h3>
             
@@ -56,10 +97,9 @@ const PesananAdmin = ({ cart = {}, menus = [], updateQty, pindahkanKeProses }) =
             ) : (
               cartItems.map(id => {
                 const qty = cart[id];
-                const m = menus.find(menu => menu.id === parseInt(id));
+                const m = menu.find(item => String(item.id) === String(id));
                 if (!m) return null;
                 const sub = m.harga * qty;
-                totalHarga += sub; totalPcs += qty;
 
                 return (
                   <div key={id} className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex justify-between items-center">
@@ -86,7 +126,6 @@ const PesananAdmin = ({ cart = {}, menus = [], updateQty, pindahkanKeProses }) =
             )}
           </div>
 
-          {/* CARD PROSES */}
           <div className="lg:col-span-4 sticky top-24">
             <div className="bg-white p-8 rounded-[35px] shadow-2xl border border-gray-50">
               <h3 className="font-black text-xl text-gray-800 mb-6 border-b pb-4">Konfirmasi <span className="text-[#FF8C00]">Meja</span></h3>
@@ -97,9 +136,7 @@ const PesananAdmin = ({ cart = {}, menus = [], updateQty, pindahkanKeProses }) =
                   <input 
                     type="number" 
                     value={meja} 
-                    onChange={handleMejaChange} // PERBAIKAN: Memanggil fungsi validasi
-                    min="1"                     // PERBAIKAN: Batas minimum browser
-                    max="100"                   // PERBAIKAN: Batas maksimum browser
+                    onChange={handleMejaChange}
                     className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl font-black text-2xl text-center text-[#002366] focus:border-[#FF8C00] outline-none transition-all" 
                     placeholder="0" 
                   />
@@ -125,23 +162,18 @@ const PesananAdmin = ({ cart = {}, menus = [], updateQty, pindahkanKeProses }) =
                 </div>
 
                 <button 
-                  onClick={() => pindahkanKeProses(meja, "", payMethod, totalHarga, cartItems, menus)}
-                  disabled={!meja || cartItems.length === 0}
+                  onClick={handleProsesPesanan}
+                  disabled={!meja || cartItems.length === 0 || loading}
                   className={`w-full py-5 rounded-2xl font-black text-sm uppercase tracking-widest shadow-lg transition-all duration-300 ${
-                    !meja || cartItems.length === 0 
+                    !meja || cartItems.length === 0 || loading
                       ? 'bg-gray-100 text-gray-300 cursor-not-allowed shadow-none' 
                       : 'bg-[#FF8C00] text-white hover:bg-orange-600 hover:-translate-y-1 active:scale-95 shadow-orange-200'
                   }`}
                 >
-                  Proses Pesanan Sekarang
+                  {loading ? 'Sabar, Sedang Memproses...' : 'Proses Pesanan Sekarang'}
                 </button>
-                
-                {!meja && cartItems.length > 0 && (
-                  <p className="text-red-500 text-[10px] text-center font-bold animate-pulse">⚠️ ISI NOMOR MEJA (1-100)</p>
-                )}
               </div>
             </div>
-            <p className="text-center text-[10px] text-gray-400 mt-6 uppercase font-bold tracking-[0.2em]">Kios Mom's Jangkar Sandar</p>
           </div>
 
         </div>
